@@ -227,6 +227,7 @@ We can piggyback on the fact that video streams follow a long-tail distribution 
 
 Hence, we can store popular videos in CDN and serve everything else from high capacity storage servers:
 ![cdn-optimization](images/cdn-optimization.png)
+![cdn-optimization](images/youtube)
 
 Other cost-saving optimizations:
  * We might not need to store many encoded versions for less popular videos. Short videos can be encoded on-demand.
