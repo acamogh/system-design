@@ -44,17 +44,6 @@ Non-functional requirements:
  * QPS for upload API - 10mil * 2 uploads / 24h / 3600s = ~240
  * Peak QPS = 480
 
-# Step 2 - propose high-level design and get buy-in
-In this chapter, we'll use a different approach than other ones - we'll start building the design from a single server and scale out from there.
-
-We'll start from:
- * A web server to upload and download files
- * A database to keep track of metadata - user data, login info, files info, etc
- * Storage system to store the files
-
-Example storage we could use:
-![storage-example](images/storage-example.png)
-
 ## APIs
 **Upload file:**
 ```
@@ -87,26 +76,6 @@ params:
 
 All the APIs require authentication and use HTTPS.
 
-## Move away from single server
-As more files are uploaded, at some point, you reach your storage's capacity.
-
-One option to scale your storage server is by implementing sharing - each user's data is stored on separate servers:
-![sharding-example](images/sharding-example.png)
-
-This solves your issue but you're still worried about potential data loss.
-
-A good option to address that is to use an off-the-shelf solution like Amazon S3 which offers replication (same-region/cross-region) out of the box:
-![amazon-s3](images/amazon-s3.png)
-
-Other areas you could improve:
- * Load balancing - this ensures evenly distributed network traffic to your web server replicas.
- * More web servers - with the advent of a load balancer, you can easily scale your web server layer by adding more servers.
- * Metadata database - move the database away from the server to avoid single points of failure. You can also setup replication and sharding to meet scalability requirements.
- * File storage - Amazon S3 for storage. To ensure availability and durability, files are replicated in two separate geographical regions.
-
-Here's the updated design:
-![updated-simple-design](images/updated-simple-design.png)
-
 ## Sync conflicts
 Once the user base grows sufficiently, sync conflicts are unavoidable.
 
@@ -128,38 +97,6 @@ What happens once you get a conflict? We generate a second version of the file w
  * Metadata cache - some of the metadata is cached for fast retrieval.
  * Notification service - Publisher/subscriber system which notifies users when a file is updated/edited/removed so that they can pull the latest changes.
  * Offline backup queue - used to queue file changes for users who are offline so that they can pull them once they come back online.
-
-# Step 3 - Design deep dive
-Let's explore:
- * block servers
- * metadata database
- * upload/download flow
- * notification service
- * saving storage space
- * failure handling
-
-## Block servers
-For large files, it's infeasible to send the whole file on each update as it consumes a lot of bandwidth.
-
-Two optimizations we're going to explore:
- * Delta sync - once a file is modified, only modified blocks are sent to the block servers instead of the whole file.
- * Compression - applying compression on blocks can significantly reduce data size. Different algorithms are suitable for different file types, eg for text files, we'll use gzip/bzip2.
-
-Apart from splitting files in blocks, the block servers also apply encryption prior to storing files in file storage:
-![block-servers-deep-dive](images/block-servers-deep-dive.png)
-
-Example delta sync:
-![delta-sync](images/delta-sync.png)
-
-## High consistency requirement
-Our system requires strong consistency as it's unacceptable to show different versions of a file to different people.
-
-This is mainly problematic when we use caches, in particular the metadata cache in our example. 
-To sustain strong consistency, we need to:
- * keep cache master and replicas consistent
- * invalidate caches on database write
-
-For the database, strong consistency is guaranteed as long as we use a relational database, which supports ACID (all typically do).
 
 ## Metadata database
 Here's a simplified table schema for the metadata db (only interesting fields are shown):
