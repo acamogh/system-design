@@ -32,22 +32,6 @@ Here's some of the main endpoints.
  * `POST /v1/me/feed` - publish a post. Payload includes `content` + `auth_token`.
  * `GET /v1/me/feed` - retrieve news feed. Payload includes `auth_token`.
 
-## Feed publishing
-![feed-publishing](images/feed-publishign.png)
- * User makes a new post via API.
- * Load balancer - distributes traffic to web servers.
- * Web servers - redirect traffic to internal services.
- * Post service - persist post in database and cache.
- * Fanout service - push posts to friends' news feeds.
- * Notification service - inform new friends that content is available.
-
-## Newsfeed building
-![newsfeed-building](images/newsfeed-building.png)
- * User sends request to retrieve news feed.
- * Load balancer redirects traffic to web servers.
- * Web servers - route requests to newsfeed service.
- * Newsfeed service - fetch news feed from cache.
- * Newsfeed cache - store pre-computed news feeds for fast retrieval.
 
 # Step 3 - Design deep dive
 Let's discuss the two flows we covered in more depth.
@@ -55,32 +39,6 @@ Let's discuss the two flows we covered in more depth.
 ## Feed publishing deep dive
 ![feed-publishing-deep-dive](images/feed-publishing-deep-dive.png)
 
-### Web servers
-besides a gateway to the internal services, these do authentication and apply rate limits, in order to prevent spam.
-
-### Fanout service
-This is the process of delivering posts to friends. There are two types of fanouts - fanout on write (push model) and fanout on read (pull model).
-
-Fanout on write (push model) - posts are pre-computed during post publishing.
-
-Pros:
- * news feed is generated in real-time and can be delivered instantly to friends' news feed.
- * fetching the news feed is fast as it's precomputed
-
-Cons:
- * if a friend has many friends, generating the news feed takes a lot of time, which slows down post publishing speed. This is the hotkey problem.
- * for inactive users, pre-computing the news feed is a waste.
-
-Fanout on read (pull model) - news feed is generated during read time.
-
-Pros:
- * Works better for inactive users, as news feeds are not generated for them.
- * Data is not pushed to friends, hence, no hotkey problem.
-
-Cons:
- * Fetching the news feed is slow as it's not pre-computed.
-
-We'll adopt a hybrid approach - we'll pre-compute the news feed for people without many friends and use the pull model for celebrities and users with many friends/followers.
 
 System diagram of fanout service:
 ![fanout-service](images/fanout-service.png)
