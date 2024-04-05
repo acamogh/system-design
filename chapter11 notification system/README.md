@@ -111,51 +111,6 @@ Example lifecycle of a notification:
 # Step 3 - Design deep dive
 In this section, we discuss some additional considerations for our improved design.
 
-## Reliability
-Some questions to consider in terms of making the system reliable:
- * What happens in the event of data loss?
- * Will recipients receive notifications exactly once?
-
-To avoid data loss, we can persist notifications in a notification log database on the workers, which retry them in case a notification doesn't go through:
-![notification-log-db](images/notification-log-db.png)
-
-What about duplicate notifications?
-
-It will occasionally happen as we can't guarantee exactly-once delivery (unless the third-party API provides idempotency keys).
-If they don't we can still try to reduce probability of this happening by having a dedup mechanism on our end, which discards an event id if it is already seen.
-
-## Additional components and considerations
-### Notification templates
-To avoid building every notification from scratch on the client side, we'll introduce notification templates as many notifications can reuse them:
-```
-BODY:
-You dreamed of it. We dared it. [ITEM NAME] is back — only until [DATE].
-
-CTA:
-Order Now. Or, Save My [ITEM NAME]
-```
-
-### Notification setting
-Before sending any notification, we first check if user has opted in for the given communication channel via this database table:
-```
-user_id bigInt
-channel varchar # push notification, email or SMS
-opt_in boolean # opt-in to receive notification
-```
-
-### Rate limiting
-To avoid overwhelming users with too many notifications, we can introduce some client-side rate limiting (on our end) so that they don't opt out of notifications immediately once they get bombarded.
-
-### Retry mechanism
-If a third-party provider fails to send a notification, it will be put into a retry queue. If problem persists, developers are notified.
-
-### Security in push notifications
-Only verified and authenticated clients are allowed to send push notifications through our APIs. We do this by requiring an appKey and appSecret, inspired by Android/Apple notification servers.
-
-### Monitor queued notifications
-A critical metric to keep track of is number of queued notifications. If it gets too big, we might have to add more workers:
-![notifications-queue](images/notifications-queue.png)
-
 ### Events tracking
 We might have to track certain events related to a notification, eg open rate/click rate/etc.
 
