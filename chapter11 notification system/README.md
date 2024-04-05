@@ -61,25 +61,8 @@ Although clients can setup their own mail servers, most clients opt-in to use th
 Here's final design after including all notification providers:
 ![notification-providers-design](images/notification-providers-design.png)
 
-## Contact info gathering form
-In order to send notifications, we need to gather some inputs from the user first. That is done at user signup:
-![contact-info-gathering](images/contact-info-gathering.png)
-
-Example database tables for storing contact info:
+## Example database tables for storing contact info:
 ![contact-info-db](images/contact-info-db.png)
-
-## Notification sending/receiving flow
-Here's the high-level design of our notification system:
-![high-level-design](images/high-level-design.png)
- * Service 1 to N - other services in the system or cron jobs which trigger notification sending events.
- * Notification system - accepts notification sending messages and propagates to the correct provider.
- * Third-party services - responsible for delivering the messages to the correct users via the appropriate medium. This part should be build \w extensibility in case we change third-party service providers in the future.
- * iOS, Android, SMS, Email - Users receive notifications on their devices.
-
-Some problems in this design:
- * Single point of failure - only a single notification service
- * Hard to scale - since notification system handles everything, it is hard to independently scale eg the cache/database/service layer/etc.
- * Performance bottleneck - handling everything in one system can be a bottleneck especially for resource-intensive tasks such as building HTML pages.
 
 ## High-level design (improved)
 Some changes from the original naive design:
