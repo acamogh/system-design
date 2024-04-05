@@ -36,81 +36,9 @@ Features, we'll focus on:
  * Average video size is 300mb
  * Daily storage cost needed - 5mil * 10% * 300mb = 150TB
  * CDN Cost, assuming 0.02$ per GB - 5mil * 5 videos * 0.3GB * 0.02$ = USD 150k per day
+ 
+ ![cdn-optimization](images/youtube.png)
 
-# Step 2 - Propose high-level design and get buy-in
-As previously discussed, we won't be building everything from scratch.
-
-Why?
- * In a system design interview, choosing the right technology is more important than explaining how the technology works.
- * Building scalable blob storage over CDN is complex and costly. Even big tech don't build everything from scratch. Netflix uses AWS and Facebook uses Akamai's CDN.
-
-Here's our system design at a high-level:
-![high-level-sys-design](images/high-level-sys-design.png)
- * Client - you can watch youtube on web, mobile and TV.
- * CDN - videos are stored in CDN.
- * API Servers - Everything else, except video streaming goes through the API servers. Feed recommendation, generating video URL, updating metadata db and cache, user signup.
-
-Let's explore high-level design of video streaming and uploading.
-
-## Video uploading flow
-![video-uploading-flow](images/video-uploading-flow.png)
- * Users watch videos on a supported client
- * Load balancer evenly distributes requests across API servers
- * All user requests go through API servers, except video streaming
- * Metadata DB - sharded and replicated to meet performance and availability requirements
- * Metadata cache - for better performance, video metadata and user objects are cached
- * A blob storage system is used to store the actual videos
- * Transcoding/encoding servers - transform videos to various formats (eg MPEG, HLS, etc) which are suitable for different devices and bandwidth
- * Transcoded storage stores result files from transcoding
- * Videos are cached in CDN - clicking play streams the video from CDN
- * Completion queue - stores events about video transcoding results
- * Completion handler - a set of workers which pull event data from completion queue and update metadata cache and database
-
-Let's now explore the flow of uploading videos and video metadata. Metadata includes info about video URL, size, resolution, format, etc.
-
-Here's how the video uploading flow works:
-![video-uploading-flow](images/video-uploading-flow.png)
- * Videos are uploaded to original storage
- * Transcoding servers fetch videos from storage and start transcoding
- * Once transcoding is complete, two steps are executed in parallel:
-   * Transcoded videos are sent to transcoded storage and distributed to CDN
-   * Transcoding completion events are queued in completion queue, workers pick up the events and update metadata database & cache
- * API servers inform user that uploading is complete
-
-Here's how the metadata update flow works:
-![metadata-update-flow](images/metadata-update-flow.png)
- * While file is being uploaded, user sends a request to update the video metadata - file name, size, format, etc.
- * API servers update metadata database & cache
-
-## Video streaming flow
-![video-streaming-flow](images/video-streaming-flow.png)
-
-Whenever users watch videos on YouTube, they don't download the whole video at once. Instead, they download a little and start watching it while downloading the rest.
-This is referred to as streaming. Stream is served from closest CDN server for lowest latency.
-
-Some popular streaming protocols:
- * MPEG-DASH - "Moving Picture Experts Group"-"Dynamic Adaptive Streaming over HTTP"
- * Apple HLS - "HTTP Live Streaming"
- * Microsoft Smooth Streaming
- * Adobe HTTP Dynamic Streaming (HDS)
-
-You don't need to understand those protocols in detail. It is important to understand, though, that different streaming protocols support different video encodings and playback players.
-
-We need to choose the right streaming protocol to support our use-case.
-
-# Step 3 - Design deep dive
-In this part, we'll deep dive into the video uploading and video streaming flows.
-
-## Video transcoding
-Video transcoding is important for a few reasons:
- * Raw video consumes a lot of storage space.
- * Many browsers have constraints on the type of videos they can support. It is important to encode a video for compatibility reasons.
- * To ensure good UX, you ought to serve HD videos to users with good network connection and lower-quality formats for the ones with slower connection.
- * Network conditions can change, especially on mobile. It is important to be able to automatically switch video formats at runtime for smooth UX.
-
-Most transcoding formats consist of two parts:
- * Container - the basket which contains the video file. Recognized by the file extension, eg .avi, .mov, .mp4
- * Codecs - Compression and decompression algorithms, which reduce video size while preserving quality. Most popular ones - H.264, VP9, HEVC.
 
 ## Directed Acyclic Graph (DAG) model
 Transcoding video is computationally expensive and time-consuming. 
